@@ -118,9 +118,23 @@ static const struct vkd3d_instance_application_meta application_override[] = {
     { VKD3D_STRING_COMPARE_EXACT, "AOW4.exe", VKD3D_CONFIG_FLAG_STATIC(NO_UPLOAD_HVV) },
     /* Red Dead Redemption (2668510). Inconsistent performance with ReBAR at cutscenes of the game. */
     { VKD3D_STRING_COMPARE_EXACT, "RDR.exe", VKD3D_CONFIG_FLAG_STATIC(NO_UPLOAD_HVV) },
-    /* Starfield (1716740) */
+    /* Starfield (1716740).
+     * Calls ID3D12Device5::OpenExistingHeapFromAddress() during init, which
+     * maps to a SHARED_CROSS_ADAPTER heap backed by host memory import. On
+     * drivers without VK_EXT_external_memory_host (e.g. Turnip) such heaps
+     * are rejected and the game crashes instead of handling the failure.
+     * Use the host import fallback (plain host-visible allocation), the same
+     * workaround Halo Infinite uses.
+     * Also creates state-template (device-generated-commands) command
+     * signatures; on drivers without DGC support vkd3d silently drops the
+     * state template and skips the matching ExecuteIndirect calls, so the
+     * GPU-driven world never renders. Making CreateCommandSignature fail
+     * instead crashes the game during world load (~2 min, C0000005): the
+     * game has no usable fallback, so keep the silent drop for now. */
     { VKD3D_STRING_COMPARE_EXACT, "Starfield.exe",
-            VKD3D_CONFIG_FLAG_INIT_STATIC(.HUGE_NV_DGC_BUFFERS = 1, .REJECT_PADDED_SMALL_RESOURCE_ALIGNMENT = 1) },
+            VKD3D_CONFIG_FLAG_INIT_STATIC(
+                .HUGE_NV_DGC_BUFFERS = 1, .REJECT_PADDED_SMALL_RESOURCE_ALIGNMENT = 1,
+                .USE_HOST_IMPORT_FALLBACK = 1) },
     /* Persona 3 Reload (2161700). Enables RT by default on Deck and does not run acceptably for a verified title. */
     { VKD3D_STRING_COMPARE_EXACT, "P3R.exe", VKD3D_CONFIG_FLAGS_NONE, VKD3D_CONFIG_FLAGS_NONE, VKD3D_APPLICATION_FEATURE_NO_DEFAULT_DXR_ON_DECK_AND_FRAME },
     /* Basically never bothers doing initial transitions.
