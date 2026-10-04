@@ -4002,6 +4002,7 @@ struct d3d12_command_signature
     } state_template;
     bool requires_state_template;
     enum vkd3d_pipeline_type pipeline_type;
+    uint32_t dgc_skip_count; /* debug: ExecuteIndirect calls dropped on non-DGC drivers */
 
     struct d3d12_device *device;
 

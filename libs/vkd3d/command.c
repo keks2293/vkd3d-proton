@@ -18566,6 +18566,12 @@ static void STDMETHODCALLTYPE d3d12_command_list_ExecuteIndirect(d3d12_command_l
     arg_buffer_offset += sig_impl->argument_buffer_offset_for_command;
     if (sig_impl->argument_buffer_offset_for_command)
     {
+        /* DEBUG (Starfield/DGC scoping): how often is this dropped? */
+        unsigned int n = (unsigned int)vkd3d_atomic_uint32_increment(&sig_impl->dgc_skip_count,
+                vkd3d_memory_order_relaxed);
+        if (!n || !(n & 0x3ff))
+            INFO("cmdsig-debug: DGC-skip sig=%p execute #%u (stride=%u)\n",
+                    sig_impl, n, sig_impl->desc.ByteStride);
         d3d12_command_list_debug_mark_label(list, "DGC skip", 1.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
@@ -27332,6 +27338,16 @@ HRESULT d3d12_command_signature_create(struct d3d12_device *device, struct d3d12
 
             has_action = true;
         }
+    }
+
+    {
+        /* DEBUG (Starfield/DGC scoping): dump the per-command layout. */
+        unsigned int d;
+        INFO("cmdsig-debug: nargs=%u ByteStride=%u action_offset=%u state_template=%d pipeline_type=%u\n",
+                desc->NumArgumentDescs, desc->ByteStride, argument_buffer_offset,
+                (int)requires_state_template, (unsigned int)pipeline_type);
+        for (d = 0; d < desc->NumArgumentDescs; ++d)
+            INFO("cmdsig-debug:   arg[%u] type=%u\n", d, (unsigned int)desc->pArgumentDescs[d].Type);
     }
 
     if (!has_action)
